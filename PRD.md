@@ -27,9 +27,10 @@ placeholders.
 | `CORS_ORIGINS` | Sí | Orígenes permitidos separados por coma | `main.py` |
 | `APIS_PERU_TOKEN` | Sí | Token del proveedor de consultas RUC/DNI | `services/externo_service.py` |
 | `APIS_PERU_BASE_URL` | Sí | URL base del proveedor RUC/DNI | `services/externo_service.py` |
-| `OPEN_METEO_URL` | Sí | URL base de Open-Meteo | `services/externo_service.py` |
-| `HUANCAYO_LAT` | Sí | Latitud de Huancayo | `services/externo_service.py` |
-| `HUANCAYO_LON` | Sí | Longitud de Huancayo | `services/externo_service.py` |
+| `WEATHER_API_BASE_URL` | No | URL base de WeatherAPI (por defecto `https://api.weatherapi.com/v1`) | `services/externo_service.py` |
+| `WEATHER_API_KEY` | Sí | API key de WeatherAPI; si está vacía se devuelve el fallback manual | `services/externo_service.py` |
+| `HUANCAYO_LAT` | No | Latitud de Huancayo (por defecto `-12.0651`) | `services/externo_service.py` |
+| `HUANCAYO_LON` | No | Longitud de Huancayo (por defecto `-75.2049`) | `services/externo_service.py` |
 
 Contenido de referencia para `.env.example` (solo placeholders):
 
@@ -41,9 +42,10 @@ JWT_EXPIRE_MINUTES=<minutos>
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000,<dominio_produccion>
 APIS_PERU_TOKEN=<token>
 APIS_PERU_BASE_URL=<url_base>
-OPEN_METEO_URL=<url_base>
-HUANCAYO_LAT=<latitud>
-HUANCAYO_LON=<longitud>
+WEATHER_API_BASE_URL=https://api.weatherapi.com/v1
+WEATHER_API_KEY=tu_api_key_aqui
+HUANCAYO_LAT=-12.0651
+HUANCAYO_LON=-75.2049
 ```
 
 ---
@@ -238,12 +240,20 @@ configuración desde variables de entorno.
 
 | Endpoint | Consume | Variables | Fallback si falla |
 |---|---|---|---|
-| `GET /api/v1/externo/clima-huancayo` | Open-Meteo | `OPEN_METEO_URL`, `HUANCAYO_LAT`, `HUANCAYO_LON` | `{"manual": true, ...}` |
+| `GET /api/v1/externo/clima-huancayo` | WeatherAPI | `WEATHER_API_BASE_URL`, `WEATHER_API_KEY`, `HUANCAYO_LAT`, `HUANCAYO_LON` | `{"manual": true, ...}` |
 | `GET /api/v1/externo/ruc/{ruc}` | Consulta SUNAT (proveedor externo) | `APIS_PERU_BASE_URL`, `APIS_PERU_TOKEN` | `{"manual": true, ...}` |
 | `GET /api/v1/externo/dni/{dni}` | Consulta RENIEC (proveedor externo) | `APIS_PERU_BASE_URL`, `APIS_PERU_TOKEN` | `{"manual": true, ...}` |
 
 Reglas:
 
+- El clima se consulta con
+  `GET {WEATHER_API_BASE_URL}/current.json?key={WEATHER_API_KEY}&q={HUANCAYO_LAT},{HUANCAYO_LON}&lang=es`.
+  Los campos `current.temp_c`, `current.humidity` y `current.wind_kph` se mapean a
+  `current.temperature_2m`, `current.relative_humidity_2m` y `current.wind_speed_10m`,
+  conservando el contrato JSON que consume el frontend (incluye `current_units`,
+  `timezone` y `utc_offset_seconds`).
+- Si `WEATHER_API_KEY` está vacía, se responde directamente con el fallback manual sin
+  realizar la petición.
 - El fallback devuelve HTTP 200 con `manual: true` y un mensaje para captura manual; no se
   propaga la excepción del proveedor.
 - Nunca registrar el token ni la URL completa con credenciales en logs.
