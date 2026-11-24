@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
   calidad:
@@ -10,16 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: src
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
-      JWT_EXPIRE_MINUTES: ${{ secrets.JWT_EXPIRE_MINUTES }}
-      CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
-      APIS_PERU_TOKEN: ${{ secrets.APIS_PERU_TOKEN }}
-      APIS_PERU_BASE_URL: ${{ secrets.APIS_PERU_BASE_URL }}
-      OPEN_METEO_URL: ${{ secrets.OPEN_METEO_URL }}
-      HUANCAYO_LAT: ${{ secrets.HUANCAYO_LAT }}
-      HUANCAYO_LON: ${{ secrets.HUANCAYO_LON }}
+      # Valores dummy: los tests no necesitan secretos ni servicios reales.
+      DATABASE_URL: postgresql://usuario:clave@localhost:5432/pruebas
+      JWT_SECRET: test-secret-key-ci
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: "60"
+      CORS_ORIGINS: http://localhost:5173
+      APIS_PERU_TOKEN: dummy
+      APIS_PERU_BASE_URL: https://api.example.test
+      OPEN_METEO_URL: https://api.open-meteo.test/v1/forecast
+      HUANCAYO_LAT: "-12.0651"
+      HUANCAYO_LON: "-75.2049"
 
     steps:
       - name: Checkout
