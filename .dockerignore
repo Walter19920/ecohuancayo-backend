@@ -1,0 +1,17 @@
+# Secretos y entornos locales
+.env
+.env.*
+.venv/
+**/.venv/
+
+# Cachés y artefactos de Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.ruff_cache/
+**/.ruff_cache/
+
+# Control de versiones
+.git/

@@ -1,0 +1,17 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Desplegar backend en Render
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Disparar deploy hook de Render
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}"
