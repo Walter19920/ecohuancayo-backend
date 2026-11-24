@@ -27,23 +27,48 @@ def _success(data: Any) -> dict[str, Any]:
 
 
 async def clima_huancayo() -> dict[str, Any]:
-    """Consulta el clima actual de Huancayo en Open-Meteo."""
+    """Consulta el clima actual de Huancayo en WeatherAPI.
+
+    La respuesta se adapta al contrato que ya consume el frontend: ``current`` con
+    ``temperature_2m``, ``relative_humidity_2m`` y ``wind_speed_10m``, sus unidades
+    y la zona horaria de Lima.
+    """
     settings = get_settings()
+    if not (settings.weather_api_key or "").strip():
+        return _fallback()
+
+    url = f"{settings.weather_api_base_url.rstrip('/')}/current.json"
     params = {
-        "latitude": settings.huancayo_lat,
-        "longitude": settings.huancayo_lon,
-        "current": "temperature_2m,relative_humidity_2m,wind_speed_10m",
-        # Huancayo usa UTC-5 todo el año; Open-Meteo debe devolver la hora local.
-        "timezone": "America/Lima",
+        "key": settings.weather_api_key,
+        "q": f"{settings.huancayo_lat},{settings.huancayo_lon}",
+        "lang": "es",
     }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(settings.open_meteo_url, params=params)
+            response = await client.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-    except (httpx.HTTPError, ValueError):
+        actual = data["current"]
+        ultima_actualizacion = str(actual.get("last_updated", "")).replace(" ", "T")
+        clima = {
+            "current": {
+                "temperature_2m": actual["temp_c"],
+                "relative_humidity_2m": actual["humidity"],
+                "wind_speed_10m": actual["wind_kph"],
+                "time": ultima_actualizacion,
+            },
+            "current_units": {
+                "temperature_2m": "°C",
+                "relative_humidity_2m": "%",
+                "wind_speed_10m": "km/h",
+            },
+            # Huancayo usa UTC-5 todo el año, igual que el contrato anterior.
+            "timezone": "America/Lima",
+            "utc_offset_seconds": -18000,
+        }
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
         return _fallback()
-    return _success(data)
+    return _success(clima)
 
 
 async def consultar_ruc(ruc: str) -> dict[str, Any]:
