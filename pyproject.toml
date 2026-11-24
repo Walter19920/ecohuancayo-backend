@@ -1,0 +1,40 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Walter", email = "73874410@continental.edu.pe" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "fastapi>=0.165.0",
+    "psycopg[binary,pool]>=3.3.9",
+    "pydantic-settings>=2.16.3",
+    "python-jose>=3.5.0",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# B008: FastAPI usa Depends()/Query() en los valores por defecto de los parámetros.
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
