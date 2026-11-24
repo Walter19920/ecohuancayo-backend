@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -23,7 +24,8 @@ os.environ["JWT_EXPIRE_MINUTES"] = "60"
 os.environ["CORS_ORIGINS"] = "http://localhost:5173,http://localhost:3000"
 os.environ["APIS_PERU_TOKEN"] = "token-de-prueba"
 os.environ["APIS_PERU_BASE_URL"] = "https://api.example.test"
-os.environ["OPEN_METEO_URL"] = "https://api.open-meteo.test/v1/forecast"
+os.environ["WEATHER_API_BASE_URL"] = "https://api.weatherapi.com/v1"
+os.environ["WEATHER_API_KEY"] = "clave-de-prueba"
 os.environ["HUANCAYO_LAT"] = "-12.0651"
 os.environ["HUANCAYO_LON"] = "-75.2049"
 
@@ -579,20 +581,26 @@ def test_registrar_empleado_rechaza_operador(client: TestClient) -> None:
     )
 
 
-def test_clima_huancayo_usa_zona_horaria_peru(
+def test_clima_huancayo_weatherapi_contrato_frontend(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captura: dict[str, Any] = {}
 
     async def falso_get(*args: Any, **kwargs: Any) -> httpx.Response:
-        captura.update(kwargs["params"])
+        captura["url"] = next(arg for arg in args if isinstance(arg, str))
+        captura["params"] = kwargs["params"]
         return httpx.Response(
             200,
-            request=httpx.Request("GET", "https://api.open-meteo.test/v1/forecast"),
+            request=httpx.Request("GET", "https://api.weatherapi.com/v1/current.json"),
             json={
-                "timezone": "America/Lima",
-                "utc_offset_seconds": -18000,
-                "current": {"time": "2026-11-23T16:00"},
+                "location": {"name": "Huancayo", "tz_id": "America/Lima"},
+                "current": {
+                    "last_updated": "2026-11-24 10:30",
+                    "temp_c": 18.5,
+                    "humidity": 65,
+                    "wind_kph": 9.4,
+                    "lang": "es",
+                },
             },
         )
 
@@ -600,10 +608,50 @@ def test_clima_huancayo_usa_zona_horaria_peru(
 
     respuesta = asyncio.run(clima_huancayo())
 
-    assert captura["timezone"] == "America/Lima"
+    assert captura["url"] == "https://api.weatherapi.com/v1/current.json"
+    assert captura["params"] == {
+        "key": "clave-de-prueba",
+        "q": "-12.0651,-75.2049",
+        "lang": "es",
+    }
     assert respuesta["manual"] is False
+    assert respuesta["current"] == {
+        "temperature_2m": 18.5,
+        "relative_humidity_2m": 65,
+        "wind_speed_10m": 9.4,
+        "time": "2026-11-24T10:30",
+    }
+    assert respuesta["current_units"] == {
+        "temperature_2m": "°C",
+        "relative_humidity_2m": "%",
+        "wind_speed_10m": "km/h",
+    }
     assert respuesta["timezone"] == "America/Lima"
-    assert respuesta["current"]["time"] == "2026-11-23T16:00"
+    assert respuesta["utc_offset_seconds"] == -18000
+
+
+def test_clima_huancayo_sin_api_key_devuelve_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "backend.services.externo_service.get_settings",
+        lambda: SimpleNamespace(
+            weather_api_key="",
+            weather_api_base_url="https://api.weatherapi.com/v1",
+            huancayo_lat=-12.0651,
+            huancayo_lon=-75.2049,
+        ),
+    )
+
+    async def no_llamar(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("No se debe llamar a WeatherAPI sin API key")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", no_llamar)
+
+    respuesta = asyncio.run(clima_huancayo())
+
+    assert respuesta["manual"] is True
+    assert "manualmente" in respuesta["mensaje"]
 
 
 def test_externo_fallback_manual(

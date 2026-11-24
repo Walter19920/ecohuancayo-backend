@@ -25,9 +25,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
     apis_peru_token: str
     apis_peru_base_url: str
-    open_meteo_url: str
-    huancayo_lat: float
-    huancayo_lon: float
+    weather_api_base_url: str = "https://api.weatherapi.com/v1"
+    weather_api_key: str = ""
+    huancayo_lat: float = -12.0651
+    huancayo_lon: float = -75.2049
 
     @property
     def cors_origin_list(self) -> list[str]:

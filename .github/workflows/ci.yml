@@ -20,7 +20,8 @@ jobs:
       CORS_ORIGINS: http://localhost:5173
       APIS_PERU_TOKEN: dummy
       APIS_PERU_BASE_URL: https://api.example.test
-      OPEN_METEO_URL: https://api.open-meteo.test/v1/forecast
+      WEATHER_API_BASE_URL: https://api.weatherapi.com/v1
+      WEATHER_API_KEY: dummy
       HUANCAYO_LAT: "-12.0651"
       HUANCAYO_LON: "-75.2049"
 
