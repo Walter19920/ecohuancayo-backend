@@ -459,7 +459,7 @@ def test_registrar_recojo_rechaza_fecha_pasada(client: TestClient) -> None:
     assert respuesta.status_code == 400
     assert (
         respuesta.json()["detail"]
-        == "La fecha de recojo no puede ser anterior a la fecha actual"
+        == "La hora de recojo no puede ser anterior a la hora actual para recojos programados hoy."
     )
     assert conn.cursors == []
     assert conn.commits == 0
