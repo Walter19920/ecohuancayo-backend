@@ -12,6 +12,7 @@ from ..schemas.usuario_schema import (
     EstadoUsuarioUpdate,
     MensajeResponse,
     PasswordUsuarioUpdate,
+    SolicitudContrasenaOut,
     UsuarioCreate,
     UsuarioOut,
 )
@@ -41,6 +42,30 @@ def registrar(
 ) -> MensajeResponse:
     usuario_service.registrar(conn, payload)
     return MensajeResponse(mensaje="Usuario registrado correctamente")
+
+
+@router.get(
+    "/solicitudes-contrasena",
+    response_model=list[SolicitudContrasenaOut],
+)
+def listar_solicitudes_contrasena(
+    conn: Connection[Any] = Depends(get_db),
+    _admin: dict[str, Any] = Depends(require_admin),
+) -> list[dict[str, Any]]:
+    return usuario_service.listar_solicitudes_contrasena(conn)
+
+
+@router.patch(
+    "/solicitudes-contrasena/{id_solicitud}/atender",
+    response_model=MensajeResponse,
+)
+def atender_solicitud_contrasena(
+    id_solicitud: int,
+    conn: Connection[Any] = Depends(get_db),
+    _admin: dict[str, Any] = Depends(require_admin),
+) -> MensajeResponse:
+    usuario_service.atender_solicitud_contrasena(conn, id_solicitud)
+    return MensajeResponse(mensaje="Solicitud atendida correctamente")
 
 
 @router.patch("/{id_usuario}/estado", response_model=MensajeResponse)

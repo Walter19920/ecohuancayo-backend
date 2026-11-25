@@ -5,17 +5,10 @@ from typing import Any
 from psycopg import Connection
 
 
-def listar_empleados_paginado(
-    conn: Connection[Any],
-    busqueda: str,
-    pagina: int,
-    tamanio_pagina: int,
-) -> list[dict[str, Any]]:
+def listar_empleados(conn: Connection[Any]) -> list[dict[str, Any]]:
+    """Obtiene todos los empleados desde la función almacenada permitida."""
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT * FROM fn_listar_empleados_paginado(%s, %s, %s)",
-            (busqueda, pagina, tamanio_pagina),
-        )
+        cur.execute("SELECT * FROM fn_listar_empleados()")
         return cur.fetchall()
 
 
@@ -55,6 +48,19 @@ def historial_cargos_empleado(
     with conn.cursor() as cur:
         cur.execute(
             "SELECT * FROM fn_historial_cargos_empleado(%s)",
+            (id_empleado,),
+        )
+        return cur.fetchall()
+
+
+def historial_recojos_empleado(
+    conn: Connection[Any],
+    id_empleado: int,
+) -> list[dict[str, Any]]:
+    """Obtiene los recojos operativos de un empleado desde la función permitida."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT * FROM fn_historial_recojos_empleado(%s)",
             (id_empleado,),
         )
         return cur.fetchall()

@@ -19,6 +19,16 @@ def listar_clientes_paginado(
         return cur.fetchall()
 
 
+def listar_clientes(
+    conn: Connection[Any],
+    busqueda: str,
+) -> list[dict[str, Any]]:
+    """Busca clientes mediante la función almacenada permitida."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM fn_listar_clientes(%s)", (busqueda,))
+        return cur.fetchall()
+
+
 def registrar_cliente(
     conn: Connection[Any],
     razon_social: str,
