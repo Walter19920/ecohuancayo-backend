@@ -1,6 +1,6 @@
 """Reglas de negocio de recojos."""
 
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -100,25 +100,32 @@ def verificar_recojo_asignado(
         pagina += 1
 
 
-def registrar(conn: Connection[Any], data: RecojoCreate) -> None:
-    """Valida fecha, hora y cuadrilla antes de llamar al procedimiento almacenado."""
-    ahora = _ahora_en_peru()
+def _validar_fecha_hora(fecha_recojo: date, hora_recojo: time, ahora: datetime) -> None:
+    """Valida fecha y hora usando siempre la hora local de Perú (America/Lima).
+
+    ``ahora`` se recibe como parámetro para que la validación no dependa de la
+    hora real ni de la zona horaria del equipo donde corre la aplicación.
+    """
     hoy = ahora.date()
 
-    if data.fecha_recojo < hoy:
+    if fecha_recojo < hoy:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=MENSAJE_FECHA_PASADA,
         )
 
-    if data.fecha_recojo == hoy:
+    if fecha_recojo == hoy:
         hora_actual = ahora.time().replace(second=0, microsecond=0, tzinfo=None)
-        hora_recojo = data.hora_recojo.replace(tzinfo=None)
-        if hora_recojo < hora_actual:
+        if hora_recojo.replace(tzinfo=None) < hora_actual:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=MENSAJE_HORA_PASADA,
             )
+
+
+def registrar(conn: Connection[Any], data: RecojoCreate) -> None:
+    """Valida fecha, hora y cuadrilla antes de llamar al procedimiento almacenado."""
+    _validar_fecha_hora(data.fecha_recojo, data.hora_recojo, _ahora_en_peru())
 
     total_empleados = len(data.empleados)
     if total_empleados < 1:
