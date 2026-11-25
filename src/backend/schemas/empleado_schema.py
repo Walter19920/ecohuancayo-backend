@@ -1,6 +1,6 @@
 """Schemas de empleados."""
 
-from datetime import date
+from datetime import date, time
 
 from pydantic import BaseModel, Field
 
@@ -34,4 +34,16 @@ class HistorialCargoOut(BaseModel):
     nombre_cargo: str
     fecha_inicio: date | None = None
     fecha_fin: date | None = None
-    estado: bool
+    estado: str
+
+
+class HistorialRecojoEmpleadoOut(BaseModel):
+    id_recojo: int
+    fecha_recojo: date | None = None
+    hora_recojo: str | time | None = None
+    cliente: str | None = None
+    centro_reciclaje: str | None = None
+    vehiculo_placa: str | None = None
+    rol_en_recojo: str | None = None
+    estado_recojo: str | None = None
+    total_kg: float | None = None

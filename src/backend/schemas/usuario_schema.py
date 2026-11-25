@@ -32,5 +32,14 @@ class PasswordUsuarioUpdate(BaseModel):
     nueva_password: str = Field(min_length=8)
 
 
+class SolicitudContrasenaOut(BaseModel):
+    id_solicitud: int
+    id_usuario: int
+    nombre_completo: str | None = None
+    correo: str
+    rol: str
+    fecha_solicitud: datetime | None = None
+
+
 class MensajeResponse(BaseModel):
     mensaje: str

@@ -5,17 +5,10 @@ from typing import Any
 from psycopg import Connection
 
 
-def listar_vehiculos_paginado(
-    conn: Connection[Any],
-    busqueda: str,
-    pagina: int,
-    tamanio_pagina: int,
-) -> list[dict[str, Any]]:
+def listar_vehiculos(conn: Connection[Any]) -> list[dict[str, Any]]:
+    """Obtiene todos los vehículos desde la función almacenada permitida."""
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT * FROM fn_listar_vehiculos_paginado(%s, %s, %s)",
-            (busqueda, pagina, tamanio_pagina),
-        )
+        cur.execute("SELECT * FROM fn_listar_vehiculos()")
         return cur.fetchall()
 
 
@@ -29,5 +22,19 @@ def registrar_vehiculo(
         cur.execute(
             "CALL sp_registrar_vehiculo(%s, %s, %s)",
             (id_tipo_vehiculo, placa, capacidad_kg),
+        )
+    conn.commit()
+
+
+def actualizar_estado_vehiculo(
+    conn: Connection[Any],
+    id_vehiculo: int,
+    estado: str,
+) -> None:
+    """Actualiza el estado mediante el procedimiento almacenado permitido."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "CALL sp_actualizar_estado_vehiculo(%s, %s)",
+            (id_vehiculo, estado),
         )
     conn.commit()

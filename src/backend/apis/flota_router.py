@@ -7,7 +7,11 @@ from psycopg import Connection
 
 from ..core.database import get_db
 from ..core.security import require_gestion
-from ..schemas.flota_schema import VehiculoCreate, VehiculoOut
+from ..schemas.flota_schema import (
+    EstadoVehiculoUpdate,
+    VehiculoCreate,
+    VehiculoOut,
+)
 from ..schemas.paginacion_schema import RespuestaPaginada
 from ..schemas.usuario_schema import MensajeResponse
 from ..services import flota_service
@@ -33,3 +37,14 @@ def registrar(
 ) -> MensajeResponse:
     flota_service.registrar(conn, payload)
     return MensajeResponse(mensaje="Vehículo registrado correctamente")
+
+
+@router.patch("/{id_vehiculo}/estado", response_model=MensajeResponse)
+def actualizar_estado(
+    id_vehiculo: int,
+    payload: EstadoVehiculoUpdate,
+    conn: Connection[Any] = Depends(get_db),
+    _usuario: dict[str, Any] = Depends(require_gestion),
+) -> MensajeResponse:
+    flota_service.actualizar_estado(conn, id_vehiculo, payload.estado)
+    return MensajeResponse(mensaje="Estado del vehículo actualizado correctamente")

@@ -19,6 +19,13 @@ def listar_usuarios_paginado(
         return cur.fetchall()
 
 
+def listar_usuarios(conn: Connection[Any]) -> list[dict[str, Any]]:
+    """Obtiene todos los usuarios desde la función almacenada permitida."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM fn_listar_usuarios()")
+        return cur.fetchall()
+
+
 def registrar_usuario(
     conn: Connection[Any],
     id_empleado: int,
@@ -57,4 +64,28 @@ def cambiar_password_usuario(
             "CALL sp_cambiar_password_usuario(%s, %s)",
             (id_usuario, nuevo_password_hash),
         )
+    conn.commit()
+
+
+def solicitar_cambio_contrasena(conn: Connection[Any], correo: str) -> None:
+    """Registra la solicitud pública mediante el procedimiento permitido."""
+    with conn.cursor() as cur:
+        cur.execute("CALL sp_solicitar_cambio_contrasena(%s)", (correo,))
+    conn.commit()
+
+
+def listar_solicitudes_contrasena(conn: Connection[Any]) -> list[dict[str, Any]]:
+    """Obtiene las solicitudes pendientes desde la función permitida."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM fn_listar_solicitudes_contrasena()")
+        return cur.fetchall()
+
+
+def atender_solicitud_contrasena(
+    conn: Connection[Any],
+    id_solicitud: int,
+) -> None:
+    """Marca una solicitud como atendida mediante el procedimiento permitido."""
+    with conn.cursor() as cur:
+        cur.execute("CALL sp_atender_solicitud_contrasena(%s)", (id_solicitud,))
     conn.commit()

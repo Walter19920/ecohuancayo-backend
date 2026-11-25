@@ -1,12 +1,55 @@
 """Reglas de negocio de recojos."""
 
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
+from fastapi import HTTPException, status
 from psycopg import Connection
 
 from ..core.paginacion import construir_respuesta_paginada
-from ..repositories import recojo_repo
-from ..schemas.recojo_schema import RecojoCreate
+from ..repositories import empleado_repo, recojo_repo
+from ..schemas.recojo_schema import EmpleadoAsignado, RecojoCreate
+
+ZONA_PERU = ZoneInfo("America/Lima")
+MENSAJE_FECHA_PASADA = "La fecha de recojo no puede ser anterior a la fecha actual"
+MENSAJE_HORA_PASADA = (
+    "La hora de recojo no puede ser anterior a la hora actual "
+    "para recojos programados hoy."
+)
+MENSAJE_EMPLEADOS_REQUERIDOS = "Debe asignar al menos 1 empleado al recojo."
+MENSAJE_EMPLEADOS_MAXIMOS = "Máximo 2 empleados por recojo."
+CARGOS_OPERATIVOS = {"Conductor de Unidad Pesada", "Operario de Recolección"}
+MENSAJE_EMPLEADO_NO_OPERATIVO = (
+    "No se puede asignar un empleado inactivo o no operativo al recojo."
+)
+
+
+def _ahora_en_peru() -> datetime:
+    """Devuelve la hora actual en la zona horaria de Perú."""
+    return datetime.now(ZONA_PERU)
+
+
+def _validar_empleados_asignados(
+    conn: Connection[Any],
+    empleados: list[EmpleadoAsignado],
+) -> None:
+    """Verifica que cada operario exista, esté activo y tenga cargo operativo."""
+    por_id = {
+        int(fila.get("id_empleado") or 0): fila
+        for fila in empleado_repo.listar_empleados(conn)
+    }
+    for empleado in empleados:
+        fila = por_id.get(empleado.id_empleado)
+        if (
+            fila is None
+            or fila.get("estado") is not True
+            or fila.get("cargo_actual") not in CARGOS_OPERATIVOS
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=MENSAJE_EMPLEADO_NO_OPERATIVO,
+            )
 
 
 def listar_paginado(
@@ -58,6 +101,39 @@ def verificar_recojo_asignado(
 
 
 def registrar(conn: Connection[Any], data: RecojoCreate) -> None:
+    """Valida fecha, hora y cuadrilla antes de llamar al procedimiento almacenado."""
+    ahora = _ahora_en_peru()
+    hoy = ahora.date()
+
+    if data.fecha_recojo < hoy:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=MENSAJE_FECHA_PASADA,
+        )
+
+    if data.fecha_recojo == hoy:
+        hora_actual = ahora.time().replace(second=0, microsecond=0, tzinfo=None)
+        hora_recojo = data.hora_recojo.replace(tzinfo=None)
+        if hora_recojo < hora_actual:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=MENSAJE_HORA_PASADA,
+            )
+
+    total_empleados = len(data.empleados)
+    if total_empleados < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=MENSAJE_EMPLEADOS_REQUERIDOS,
+        )
+    if total_empleados > 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=MENSAJE_EMPLEADOS_MAXIMOS,
+        )
+
+    _validar_empleados_asignados(conn, data.empleados)
+
     recojo_repo.registrar_recojo_completo(
         conn,
         data.id_vehiculo,

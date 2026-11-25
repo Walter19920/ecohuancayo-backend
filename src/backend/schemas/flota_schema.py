@@ -17,3 +17,7 @@ class VehiculoCreate(BaseModel):
     id_tipo_vehiculo: int
     placa: str = Field(min_length=1)
     capacidad_kg: float = Field(gt=0)
+
+
+class EstadoVehiculoUpdate(BaseModel):
+    estado: str = Field(min_length=1)

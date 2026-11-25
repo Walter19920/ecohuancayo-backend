@@ -12,6 +12,7 @@ from ..schemas.empleado_schema import (
     EmpleadoCreate,
     EmpleadoOut,
     HistorialCargoOut,
+    HistorialRecojoEmpleadoOut,
 )
 from ..schemas.paginacion_schema import RespuestaPaginada
 from ..schemas.usuario_schema import MensajeResponse
@@ -59,3 +60,14 @@ def historial(
     conn: Connection[Any] = Depends(get_db),
 ) -> list[dict[str, Any]]:
     return empleado_service.historial_cargos(conn, id_empleado)
+
+
+@router.get(
+    "/{id_empleado}/recojos",
+    response_model=list[HistorialRecojoEmpleadoOut],
+)
+def historial_recojos(
+    id_empleado: int,
+    conn: Connection[Any] = Depends(get_db),
+) -> list[dict[str, Any]]:
+    return empleado_service.historial_recojos(conn, id_empleado)
