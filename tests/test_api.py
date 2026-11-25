@@ -38,6 +38,10 @@ from backend.core.security import (  # noqa: E402
 )
 from backend.main import app  # noqa: E402
 from backend.services.externo_service import clima_huancayo  # noqa: E402
+from backend.services.recojo_service import (  # noqa: E402
+    MENSAJE_FECHA_PASADA,
+    MENSAJE_HORA_PASADA,
+)
 
 PASSWORD = "Secreta123"
 PASSWORD_HASH = hash_password(PASSWORD)
@@ -439,7 +443,15 @@ def test_registrar_recojo_envia_jsonb(client: TestClient) -> None:
     assert json.loads(cursor.params[7]) == [{"id_empleado": 7}]
 
 
-def test_registrar_recojo_rechaza_fecha_pasada(client: TestClient) -> None:
+def test_registrar_recojo_rechaza_fecha_pasada(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ahora = datetime(2026, 11, 24, 16, 6, 30, tzinfo=ZoneInfo("America/Lima"))
+    monkeypatch.setattr(
+        "backend.services.recojo_service._ahora_en_peru",
+        lambda: ahora,
+    )
     conn = use_connection([])
 
     respuesta = client.post(
@@ -449,7 +461,7 @@ def test_registrar_recojo_rechaza_fecha_pasada(client: TestClient) -> None:
             "id_centro_reciclaje": 2,
             "id_cliente": 3,
             "id_estado_recojo": 1,
-            "fecha_recojo": str(date.today() - timedelta(days=1)),
+            "fecha_recojo": str(ahora.date() - timedelta(days=1)),
             "hora_recojo": "08:30:00",
             "residuos": [{"id_tipo_residuo": 4, "peso_kg": 10.5}],
             "empleados": [],
@@ -457,10 +469,7 @@ def test_registrar_recojo_rechaza_fecha_pasada(client: TestClient) -> None:
     )
 
     assert respuesta.status_code == 400
-    assert (
-        respuesta.json()["detail"]
-        == "La hora de recojo no puede ser anterior a la hora actual para recojos programados hoy."
-    )
+    assert respuesta.json()["detail"] == MENSAJE_FECHA_PASADA
     assert conn.cursors == []
     assert conn.commits == 0
 
@@ -491,10 +500,7 @@ def test_registrar_recojo_rechaza_hora_pasada_hoy(
     )
 
     assert respuesta.status_code == 400
-    assert respuesta.json()["detail"] == (
-        "La hora de recojo no puede ser anterior a la hora actual "
-        "para recojos programados hoy."
-    )
+    assert respuesta.json()["detail"] == MENSAJE_HORA_PASADA
     assert conn.cursors == []
     assert conn.commits == 0
 
