@@ -1,5 +1,7 @@
 """Schemas de flota."""
 
+from decimal import Decimal
+
 from pydantic import BaseModel, Field
 
 
@@ -16,7 +18,7 @@ class VehiculoOut(BaseModel):
 class VehiculoCreate(BaseModel):
     id_tipo_vehiculo: int
     placa: str = Field(min_length=1)
-    capacidad_kg: float = Field(gt=0)
+    capacidad_kg: Decimal = Field(gt=0)
 
 
 class EstadoVehiculoUpdate(BaseModel):

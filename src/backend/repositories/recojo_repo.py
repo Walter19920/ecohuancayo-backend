@@ -6,6 +6,8 @@ from typing import Any
 
 from psycopg import Connection
 
+from ..schemas.recojo_schema import EmpleadoParaSp, ResiduoParaSp
+
 
 def listar_recojos_paginado(
     conn: Connection[Any],
@@ -45,9 +47,10 @@ def registrar_recojo_completo(
     id_estado_recojo: int,
     fecha_recojo: date,
     hora_recojo: time,
-    residuos: list[dict[str, Any]],
-    empleados: list[dict[str, Any]],
+    residuos: list[ResiduoParaSp],
+    empleados: list[EmpleadoParaSp],
 ) -> None:
+    """Serializa los residuos y empleados normalizados para el SP."""
     with conn.cursor() as cur:
         cur.execute(
             "CALL sp_registrar_recojo_completo("
@@ -59,8 +62,8 @@ def registrar_recojo_completo(
                 id_estado_recojo,
                 fecha_recojo,
                 hora_recojo,
-                json.dumps(residuos, default=str),
-                json.dumps(empleados, default=str),
+                json.dumps([item.model_dump() for item in residuos], default=str),
+                json.dumps([item.model_dump() for item in empleados], default=str),
             ),
         )
     conn.commit()

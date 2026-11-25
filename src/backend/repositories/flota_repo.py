@@ -1,5 +1,6 @@
 """Acceso a datos de flota."""
 
+from decimal import Decimal
 from typing import Any
 
 from psycopg import Connection
@@ -16,11 +17,12 @@ def registrar_vehiculo(
     conn: Connection[Any],
     id_tipo_vehiculo: int,
     placa: str,
-    capacidad_kg: float,
+    capacidad_kg: Decimal,
 ) -> None:
+    """Invoca el procedimiento con los tipos exactos de su firma."""
     with conn.cursor() as cur:
         cur.execute(
-            "CALL sp_registrar_vehiculo(%s, %s, %s)",
+            "CALL sp_registrar_vehiculo(%s::INT, %s::VARCHAR, %s::NUMERIC)",
             (id_tipo_vehiculo, placa, capacidad_kg),
         )
     conn.commit()

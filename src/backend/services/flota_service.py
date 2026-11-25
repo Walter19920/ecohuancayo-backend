@@ -1,5 +1,6 @@
 """Reglas de negocio de flota."""
 
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -53,7 +54,7 @@ def registrar(conn: Connection[Any], data: VehiculoCreate) -> None:
         conn,
         data.id_tipo_vehiculo,
         data.placa,
-        data.capacidad_kg,
+        Decimal(str(data.capacidad_kg)),
     )
 
 

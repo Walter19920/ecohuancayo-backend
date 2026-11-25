@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -439,8 +440,131 @@ def test_registrar_recojo_envia_jsonb(client: TestClient) -> None:
     assert conn.cursors[0].query == "SELECT * FROM fn_listar_empleados()"
     cursor = conn.cursors[1]
     assert "::jsonb" in (cursor.query or "")
-    assert json.loads(cursor.params[6]) == [{"id_tipo_residuo": 4, "peso_kg": 10.5}]
-    assert json.loads(cursor.params[7]) == [{"id_empleado": 7}]
+    assert json.loads(cursor.params[6]) == [{"id_tipo_residuo": 4, "cantidad_kg": 10.5}]
+    assert json.loads(cursor.params[7]) == [
+        {"id_empleado": 7, "descripcion": "Operario asignado"}
+    ]
+
+
+def test_registrar_recojo_normaliza_peso_kg_a_cantidad_kg(client: TestClient) -> None:
+    conn = use_connection([empleado_asignable()], [])
+
+    respuesta = client.post(
+        "/api/v1/recojos",
+        json={
+            "id_vehiculo": 1,
+            "id_centro_reciclaje": 2,
+            "id_cliente": 3,
+            "id_estado_recojo": 1,
+            "fecha_recojo": str(date.today() + timedelta(days=1)),
+            "hora_recojo": "08:30:00",
+            "residuos": [
+                {"id_tipo_residuo": 3, "peso_kg": 1500},
+                {"id_tipo_residuo": 5, "peso_kg": 0.25},
+            ],
+            "empleados": [{"id_empleado": 7}],
+        },
+    )
+
+    assert respuesta.status_code == 200
+    residuos_enviados = json.loads(conn.cursors[1].params[6])
+    assert residuos_enviados == [
+        {"id_tipo_residuo": 3, "cantidad_kg": 1500.0},
+        {"id_tipo_residuo": 5, "cantidad_kg": 0.25},
+    ]
+    assert all(isinstance(item["cantidad_kg"], float) for item in residuos_enviados)
+    assert all("peso_kg" not in item for item in residuos_enviados)
+    assert conn.commits == 1
+
+
+@pytest.mark.parametrize("descripcion_recibida", [None, "", "   "])
+def test_registrar_recojo_con_descripcion_por_defecto_en_cada_empleado(
+    client: TestClient,
+    descripcion_recibida: str | None,
+) -> None:
+    conn = use_connection(
+        [empleado_asignable(), empleado_asignable(id_empleado=8)],
+        [],
+    )
+    empleados: list[dict[str, Any]] = [
+        {"id_empleado": 7},
+        {"id_empleado": 8},
+    ]
+    if descripcion_recibida is not None:
+        empleados[0]["descripcion"] = descripcion_recibida
+
+    respuesta = client.post(
+        "/api/v1/recojos",
+        json={
+            "id_vehiculo": 1,
+            "id_centro_reciclaje": 2,
+            "id_cliente": 3,
+            "id_estado_recojo": 1,
+            "fecha_recojo": str(date.today() + timedelta(days=1)),
+            "hora_recojo": "08:30:00",
+            "residuos": [{"id_tipo_residuo": 3, "peso_kg": 1500}],
+            "empleados": empleados,
+        },
+    )
+
+    assert respuesta.status_code == 200
+    assert json.loads(conn.cursors[1].params[7]) == [
+        {"id_empleado": 7, "descripcion": "Operario asignado"},
+        {"id_empleado": 8, "descripcion": "Operario asignado"},
+    ]
+    assert conn.commits == 1
+
+
+def test_registrar_recojo_conserva_descripcion_de_empleado(client: TestClient) -> None:
+    conn = use_connection([empleado_asignable()], [])
+
+    respuesta = client.post(
+        "/api/v1/recojos",
+        json={
+            "id_vehiculo": 1,
+            "id_centro_reciclaje": 2,
+            "id_cliente": 3,
+            "id_estado_recojo": 1,
+            "fecha_recojo": str(date.today() + timedelta(days=1)),
+            "hora_recojo": "08:30:00",
+            "residuos": [{"id_tipo_residuo": 3, "peso_kg": 1500}],
+            "empleados": [
+                {"id_empleado": 7, "descripcion": "  Conductor de la unidad  "}
+            ],
+        },
+    )
+
+    assert respuesta.status_code == 200
+    assert json.loads(conn.cursors[1].params[7]) == [
+        {"id_empleado": 7, "descripcion": "Conductor de la unidad"}
+    ]
+    assert conn.commits == 1
+
+
+@pytest.mark.parametrize("peso_kg", [0, -1, -0.5])
+def test_registrar_recojo_rechaza_peso_no_positivo(
+    client: TestClient,
+    peso_kg: float,
+) -> None:
+    conn = use_connection([])
+
+    respuesta = client.post(
+        "/api/v1/recojos",
+        json={
+            "id_vehiculo": 1,
+            "id_centro_reciclaje": 2,
+            "id_cliente": 3,
+            "id_estado_recojo": 1,
+            "fecha_recojo": str(date.today() + timedelta(days=1)),
+            "hora_recojo": "08:30:00",
+            "residuos": [{"id_tipo_residuo": 3, "peso_kg": peso_kg}],
+            "empleados": [{"id_empleado": 7}],
+        },
+    )
+
+    assert respuesta.status_code == 422
+    assert conn.cursors == []
+    assert conn.commits == 0
 
 
 def test_registrar_recojo_rechaza_fecha_pasada(
@@ -582,8 +706,8 @@ def test_registrar_recojo_acepta_dos_empleados(client: TestClient) -> None:
 
     assert respuesta.status_code == 200
     assert json.loads(conn.cursors[1].params[7]) == [
-        {"id_empleado": 7},
-        {"id_empleado": 8},
+        {"id_empleado": 7, "descripcion": "Operario asignado"},
+        {"id_empleado": 8, "descripcion": "Operario asignado"},
     ]
     assert conn.commits == 1
 
@@ -883,8 +1007,45 @@ def test_registrar_vehiculo_permitido_para_gestion(
     )
 
     assert respuesta.status_code == 200
-    assert conn.cursors[1].query == "CALL sp_registrar_vehiculo(%s, %s, %s)"
-    assert conn.cursors[1].params == (1, "ABC-123", 3500.0)
+    assert conn.cursors[1].query == (
+        "CALL sp_registrar_vehiculo(%s::INT, %s::VARCHAR, %s::NUMERIC)"
+    )
+    assert conn.cursors[1].params == (1, "ABC-123", Decimal("3500"))
+    assert isinstance(conn.cursors[1].params[2], Decimal)
+    assert conn.commits == 1
+
+
+@pytest.mark.parametrize(
+    "capacidad_recibida, esperada",
+    [
+        (3500.75, Decimal("3500.75")),
+        ("1500.25", Decimal("1500.25")),
+    ],
+)
+def test_registrar_vehiculo_envia_capacidad_numerica_exacta(
+    client: TestClient,
+    capacidad_recibida: float | str,
+    esperada: Decimal,
+) -> None:
+    token = create_access_token("admin@ecohuancayo.pe")
+    conn = use_connection([usuario()], [])
+
+    respuesta = client.post(
+        "/api/v1/flota",
+        json={
+            "id_tipo_vehiculo": 8,
+            "placa": "XYZ-987",
+            "capacidad_kg": capacidad_recibida,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    assert conn.cursors[1].query == (
+        "CALL sp_registrar_vehiculo(%s::INT, %s::VARCHAR, %s::NUMERIC)"
+    )
+    assert conn.cursors[1].params == (8, "XYZ-987", esperada)
+    assert isinstance(conn.cursors[1].params[2], Decimal)
     assert conn.commits == 1
 
 
