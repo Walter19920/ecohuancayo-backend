@@ -149,8 +149,8 @@ def registrar(conn: Connection[Any], data: RecojoCreate) -> None:
         data.id_estado_recojo,
         data.fecha_recojo,
         data.hora_recojo,
-        [residuo.model_dump() for residuo in data.residuos],
-        [empleado.model_dump() for empleado in data.empleados],
+        [residuo.para_sp() for residuo in data.residuos],
+        [empleado.para_sp() for empleado in data.empleados],
     )
 
 
